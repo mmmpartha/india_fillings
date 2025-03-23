@@ -1,24 +1,15 @@
-import { View, Text, StyleSheet } from 'react-native'
-import React from 'react'
+import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import Toast from 'react-native-toast-message';
+import AppNavigator from './src/navigation/stack/AppNavigation';
 
 const App = () => {
   return (
-    <View style={styles.container}>
-      <Text style={styles.text}>India Fillings</Text>
-    </View>
-  )
-}
+    <NavigationContainer>
+      <AppNavigator />
+      <Toast />
+    </NavigationContainer>
+  );
+};
 
 export default App;
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  text: {
-    fontSize: 16,
-    fontWeight: 'bold'
-  }
-})
