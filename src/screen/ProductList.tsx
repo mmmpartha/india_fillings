@@ -1,7 +1,8 @@
 import React, { useState, useCallback } from "react";
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, TextInput } from "react-native";
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput, Image } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
+import Toast from "react-native-toast-message";
 
 const ProductList = () => {
   const [products, setProducts] = useState([]);
@@ -30,7 +31,11 @@ const ProductList = () => {
       const updatedProducts = products.filter((product) => product.id !== id);
       await AsyncStorage.setItem("products", JSON.stringify(updatedProducts));
       setProducts(updatedProducts);
-      Alert.alert("Success", "Product deleted successfully!");
+      Toast.show({
+        type: "success",
+        text1: "Success",
+        text2: "Product deleted successfully!",
+      });
     } catch (error) {
       console.error("Error deleting product:", error);
     }
@@ -50,7 +55,11 @@ const ProductList = () => {
       await AsyncStorage.setItem("products", JSON.stringify(updatedProducts));
       setProducts(updatedProducts);
       setEditingProduct(null);
-      Alert.alert("Success", "Product updated successfully!");
+      Toast.show({
+        type: "success",
+        text1: "Success",
+        text2: "Product updated successfully!",
+      });
     } catch (error) {
       console.error("Error updating product:", error);
     }
@@ -68,8 +77,11 @@ const ProductList = () => {
           renderItem={({ item }) => (
             <View style={styles.productItem}>
               {editingProduct === item.id ? (
-                // Show input fields when editing
                 <View style={styles.editContainer}>
+                  <Image
+                    source={require("../assets/tab/logo.png")}
+                    style={styles.logo}
+                  />
                   <TextInput
                     style={styles.input}
                     value={editedData.name}
@@ -95,7 +107,6 @@ const ProductList = () => {
                   </TouchableOpacity>
                 </View>
               ) : (
-                // Show product details when not editing
                 <>
                   <Text style={styles.productText}>
                     {item.name} - ${item.price} - Qty: {item.quantity}
@@ -114,6 +125,8 @@ const ProductList = () => {
           )}
         />
       )}
+      {/* Add Toast Component */}
+      <Toast />
     </View>
   );
 };
@@ -123,6 +136,13 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
     backgroundColor: "#f5f5f5",
+  },
+  logo: {
+    width: 100,
+    height: 100,
+    resizeMode: "contain",
+    alignSelf: "center",
+    marginBottom: 15,
   },
   title: {
     fontSize: 20,

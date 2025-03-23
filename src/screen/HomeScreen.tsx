@@ -3,15 +3,17 @@ import {
   View,
   Text,
   StyleSheet,
-  Alert,
   TextInput,
   TouchableWithoutFeedback,
   Keyboard,
   Animated,
-  TouchableOpacity
+  TouchableOpacity,
+  Image
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Camera, useCameraDevice, useCodeScanner } from "react-native-vision-camera";
+import Toast from "react-native-toast-message";
+
 
 const QRScanner = () => {
   const [hasPermission, setHasPermission] = useState(false);
@@ -21,7 +23,7 @@ const QRScanner = () => {
   const [price, setPrice] = useState("");
   const [quantity, setQuantity] = useState("");
   const [existingProduct, setExistingProduct] = useState(null);
-  const [modalAnim] = useState(new Animated.Value(300)); 
+  const [modalAnim] = useState(new Animated.Value(200));
 
   const device = useCameraDevice("back");
 
@@ -31,7 +33,7 @@ const QRScanner = () => {
       if (status === "granted") {
         setHasPermission(true);
       } else {
-        Alert.alert("Permission Denied", "Camera access is required to scan barcodes.");
+        Toast.show({ type: "error", text1: "Permission Denied", text2: "Camera access is required to scan barcodes." });
       }
     };
 
@@ -39,20 +41,19 @@ const QRScanner = () => {
   }, []);
 
   const showModal = () => {
-    setModalVisible(true); 
+    setModalVisible(true);
     setTimeout(() => {
       Animated.timing(modalAnim, {
         toValue: 0,
-        duration: 300, 
+        duration: 100,
         useNativeDriver: true,
       }).start();
-    }, 10); 
+    }, 5);
   };
-
 
   const hideModal = () => {
     Animated.timing(modalAnim, {
-      toValue: 300, 
+      toValue: 300,
       duration: 500,
       useNativeDriver: true,
     }).start(() => setModalVisible(false));
@@ -68,7 +69,7 @@ const QRScanner = () => {
       if (existing) {
         setScannedCode(code);
         setExistingProduct(existing);
-        setQuantity(existing.quantity.toString()); 
+        setQuantity(existing.quantity.toString());
         showModal();
       } else {
         setScannedCode(code);
@@ -85,20 +86,20 @@ const QRScanner = () => {
 
   const handleSubmit = async () => {
     if (!quantity || parseInt(quantity, 10) <= 0) {
-      Alert.alert("Error", "Please enter a valid quantity.");
+      Toast.show({ type: "error", text1: "Error", text2: "Please enter a valid quantity." });
       return;
     }
 
     if (!existingProduct && (!productName || !price)) {
-      Alert.alert("Error", "Please fill all fields.");
+      Toast.show({ type: "error", text1: "Error", text2: "Please fill all fields." });
       return;
     }
 
     const newProduct = {
       id: existingProduct ? existingProduct.id : Date.now(),
       code: scannedCode,
-      name: existingProduct ? existingProduct.name : productName, // Use existing name if updating
-      price: existingProduct ? existingProduct.price : parseFloat(price), // Keep existing price
+      name: existingProduct ? existingProduct.name : productName,
+      price: existingProduct ? existingProduct.price : parseFloat(price),
       quantity: parseInt(quantity, 10),
     };
 
@@ -116,7 +117,12 @@ const QRScanner = () => {
 
       await AsyncStorage.setItem("products", JSON.stringify(products));
 
-      Alert.alert("Success", existingProduct ? "Product quantity updated!" : "Product added successfully!");
+      Toast.show({
+        type: "success",
+        text1: "Success",
+        text2: existingProduct ? "Product quantity updated!" : "Product added successfully!",
+      });
+
       setProductName("");
       setPrice("");
       setQuantity("");
@@ -126,7 +132,6 @@ const QRScanner = () => {
       console.error("Error saving product:", error);
     }
   };
-
 
   const codeScanner = useCodeScanner({
     codeTypes: ["qr", "ean-13"],
@@ -154,6 +159,11 @@ const QRScanner = () => {
       {modalVisible && (
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <Animated.View style={[styles.modalContainer, { transform: [{ translateY: modalAnim }] }]}>
+            <Image
+              source={require("../assets/tab/logo.png")}
+              style={styles.logo}
+            />
+
             <Text style={styles.modalTitle}>
               {existingProduct ? "Update Product Quantity" : "Enter Product Details"}
             </Text>
@@ -170,9 +180,8 @@ const QRScanner = () => {
                     style={styles.quantityInput}
                     keyboardType="numeric"
                     value={quantity}
-                    onChangeText={(text) => setQuantity(text.replace(/[^0-9]/g, ""))} // Allow only numbers
+                    onChangeText={(text) => setQuantity(text.replace(/[^0-9]/g, ""))}
                   />
-
 
                   <TouchableOpacity onPress={() => setQuantity((prev) => (parseInt(prev) + 1).toString())}>
                     <Text style={styles.quantityButton}>+</Text>
@@ -215,6 +224,8 @@ const QRScanner = () => {
           </Animated.View>
         </TouchableWithoutFeedback>
       )}
+
+      <Toast />
     </View>
   );
 };
@@ -223,6 +234,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "black",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  logo: {
+    width: 100,
+    height: 100,
+    resizeMode: "contain",
+    alignSelf: "center",
+    marginBottom: 15,
   },
   errorText: {
     flex: 1,
@@ -239,15 +259,29 @@ const styles = StyleSheet.create({
     padding: 20,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 5,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: "bold",
     textAlign: "center",
+    marginBottom: 15,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 16,
     marginBottom: 10,
+    width: "100%",
   },
   productName: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "bold",
     textAlign: "center",
     marginBottom: 10,
@@ -256,21 +290,25 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    marginVertical: 10,
   },
   quantityButton: {
     fontSize: 24,
     paddingHorizontal: 15,
-    color: "white",
+    paddingVertical: 5,
     backgroundColor: "#007bff",
-    borderRadius: 5,
-  },
-  quantityInput: {
-    width: 50,
-    textAlign: "center",
-    fontSize: 18,
-    borderWidth: 1,
+    color: "white",
     borderRadius: 5,
     marginHorizontal: 10,
+  },
+  quantityInput: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 16,
+    textAlign: "center",
+    width: 60,
   },
   buttonContainer: {
     flexDirection: "row",
@@ -279,18 +317,28 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     backgroundColor: "#28a745",
-    padding: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
     borderRadius: 10,
+    alignItems: "center",
+    flex: 1,
+    marginRight: 5,
   },
   closeButton: {
     backgroundColor: "#dc3545",
-    padding: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
     borderRadius: 10,
+    alignItems: "center",
+    flex: 1,
+    marginLeft: 5,
   },
   buttonText: {
     color: "white",
     fontSize: 16,
+    fontWeight: "bold",
   },
 });
+
 
 export default QRScanner;
