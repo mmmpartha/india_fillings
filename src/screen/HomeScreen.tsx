@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Alert,
   TextInput,
-  Button,
   TouchableWithoutFeedback,
   Keyboard,
   Animated,
@@ -21,6 +20,7 @@ const QRScanner = () => {
   const [productName, setProductName] = useState("");
   const [price, setPrice] = useState("");
   const [quantity, setQuantity] = useState("");
+  const [existingProduct, setExistingProduct] = useState(null);
   const [modalAnim] = useState(new Animated.Value(300)); 
 
   const device = useCameraDevice("back");
@@ -39,17 +39,20 @@ const QRScanner = () => {
   }, []);
 
   const showModal = () => {
-    setModalVisible(true);
-    Animated.timing(modalAnim, {
-      toValue: 0, 
-      duration: 500,
-      useNativeDriver: true,
-    }).start();
+    setModalVisible(true); 
+    setTimeout(() => {
+      Animated.timing(modalAnim, {
+        toValue: 0,
+        duration: 300, 
+        useNativeDriver: true,
+      }).start();
+    }, 10); 
   };
+
 
   const hideModal = () => {
     Animated.timing(modalAnim, {
-      toValue: 300,
+      toValue: 300, 
       duration: 500,
       useNativeDriver: true,
     }).start(() => setModalVisible(false));
@@ -60,13 +63,20 @@ const QRScanner = () => {
       const storedProducts = await AsyncStorage.getItem("products");
       const products = storedProducts ? JSON.parse(storedProducts) : [];
 
-      const existingProduct = products.find((p) => p.code === code);
+      const existing = products.find((p) => p.code === code);
 
-      if (existingProduct) {
-        Alert.alert("Product Found", `Product already exists: ${existingProduct.name}`);
+      if (existing) {
+        setScannedCode(code);
+        setExistingProduct(existing);
+        setQuantity(existing.quantity.toString()); 
+        showModal();
       } else {
         setScannedCode(code);
-        showModal(); 
+        setProductName("");
+        setPrice("");
+        setQuantity("");
+        setExistingProduct(null);
+        showModal();
       }
     } catch (error) {
       console.error("Error checking local storage:", error);
@@ -74,34 +84,49 @@ const QRScanner = () => {
   };
 
   const handleSubmit = async () => {
-    if (!productName || !price || !quantity) {
+    if (!quantity || parseInt(quantity, 10) <= 0) {
+      Alert.alert("Error", "Please enter a valid quantity.");
+      return;
+    }
+
+    if (!existingProduct && (!productName || !price)) {
       Alert.alert("Error", "Please fill all fields.");
       return;
     }
 
     const newProduct = {
-      id: Date.now(),
+      id: existingProduct ? existingProduct.id : Date.now(),
       code: scannedCode,
-      name: productName,
-      price: parseFloat(price),
+      name: existingProduct ? existingProduct.name : productName, // Use existing name if updating
+      price: existingProduct ? existingProduct.price : parseFloat(price), // Keep existing price
       quantity: parseInt(quantity, 10),
     };
 
     try {
       const storedProducts = await AsyncStorage.getItem("products");
-      const products = storedProducts ? JSON.parse(storedProducts) : [];
-      products.push(newProduct);
+      let products = storedProducts ? JSON.parse(storedProducts) : [];
+
+      if (existingProduct) {
+        products = products.map((p) =>
+          p.code === scannedCode ? { ...p, quantity: newProduct.quantity } : p
+        );
+      } else {
+        products.push(newProduct);
+      }
+
       await AsyncStorage.setItem("products", JSON.stringify(products));
-      
-      Alert.alert("Success", "Product added successfully!");
+
+      Alert.alert("Success", existingProduct ? "Product quantity updated!" : "Product added successfully!");
       setProductName("");
       setPrice("");
       setQuantity("");
-      hideModal(); 
+      setExistingProduct(null);
+      hideModal();
     } catch (error) {
       console.error("Error saving product:", error);
     }
   };
+
 
   const codeScanner = useCodeScanner({
     codeTypes: ["qr", "ean-13"],
@@ -129,28 +154,55 @@ const QRScanner = () => {
       {modalVisible && (
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <Animated.View style={[styles.modalContainer, { transform: [{ translateY: modalAnim }] }]}>
-            <Text style={styles.modalTitle}>Enter Product Details</Text>
+            <Text style={styles.modalTitle}>
+              {existingProduct ? "Update Product Quantity" : "Enter Product Details"}
+            </Text>
 
-            <TextInput
-              style={styles.input}
-              placeholder="Product Name"
-              value={productName}
-              onChangeText={setProductName}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Price"
-              keyboardType="numeric"
-              value={price}
-              onChangeText={setPrice}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Quantity"
-              keyboardType="numeric"
-              value={quantity}
-              onChangeText={setQuantity}
-            />
+            {existingProduct ? (
+              <>
+                <Text style={styles.productName}>{existingProduct.name}</Text>
+                <View style={styles.quantityContainer}>
+                  <TouchableOpacity onPress={() => setQuantity((prev) => Math.max(1, parseInt(prev) - 1).toString())}>
+                    <Text style={styles.quantityButton}>-</Text>
+                  </TouchableOpacity>
+
+                  <TextInput
+                    style={styles.quantityInput}
+                    keyboardType="numeric"
+                    value={quantity}
+                    onChangeText={(text) => setQuantity(text.replace(/[^0-9]/g, ""))} // Allow only numbers
+                  />
+
+
+                  <TouchableOpacity onPress={() => setQuantity((prev) => (parseInt(prev) + 1).toString())}>
+                    <Text style={styles.quantityButton}>+</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : (
+              <>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Product Name"
+                  value={productName}
+                  onChangeText={setProductName}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Price"
+                  keyboardType="numeric"
+                  value={price}
+                  onChangeText={setPrice}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Quantity"
+                  keyboardType="numeric"
+                  value={quantity}
+                  onChangeText={setQuantity}
+                />
+              </>
+            )}
 
             <View style={styles.buttonContainer}>
               <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
@@ -187,11 +239,6 @@ const styles = StyleSheet.create({
     padding: 20,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 5,
   },
   modalTitle: {
     fontSize: 18,
@@ -199,13 +246,31 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 10,
   },
-  input: {
-    height: 45,
-    borderColor: "#ccc",
+  productName: {
+    fontSize: 16,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 10,
+  },
+  quantityContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  quantityButton: {
+    fontSize: 24,
+    paddingHorizontal: 15,
+    color: "white",
+    backgroundColor: "#007bff",
+    borderRadius: 5,
+  },
+  quantityInput: {
+    width: 50,
+    textAlign: "center",
+    fontSize: 18,
     borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    marginVertical: 5,
+    borderRadius: 5,
+    marginHorizontal: 10,
   },
   buttonContainer: {
     flexDirection: "row",
@@ -214,14 +279,12 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     backgroundColor: "#28a745",
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+    padding: 10,
     borderRadius: 10,
   },
   closeButton: {
     backgroundColor: "#dc3545",
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+    padding: 10,
     borderRadius: 10,
   },
   buttonText: {
