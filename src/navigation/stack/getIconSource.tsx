@@ -1,4 +1,5 @@
-type RouteName = "Home" | "ProductList";
+type RouteName = "Home" | "ProductList" | "Cart";
+
 
 const getIconSource = (routeName: RouteName, focused: boolean): any => {
     switch (routeName) {
@@ -10,6 +11,10 @@ const getIconSource = (routeName: RouteName, focused: boolean): any => {
             return focused
                 ? require("../../assets/tab/list-active.png")
                 : require("../../assets/tab/list.png");
+        case "Cart":
+            return focused
+                ? require("../../assets/tab/cart-active.png")
+                : require("../../assets/tab/cart.png");
         default:
             return null;
     }

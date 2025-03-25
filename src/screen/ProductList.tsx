@@ -28,16 +28,41 @@ const ProductList = () => {
 
   const deleteProduct = async (id) => {
     try {
+      const productToDelete = products.find((product) => product.id === id);
+      console.log("delte proudct", productToDelete);
+
+      if (!productToDelete) {
+        Toast.show({
+          type: "error",
+          text1: "Error",
+          text2: "Product not found!",
+        });
+        return;
+      }
+
       const updatedProducts = products.filter((product) => product.id !== id);
       await AsyncStorage.setItem("products", JSON.stringify(updatedProducts));
+
+      const storedCart = await AsyncStorage.getItem("cart");
+      if (storedCart) {
+        const cart = JSON.parse(storedCart);
+        const updatedCart = cart.filter((item) => item.code !== productToDelete.code);
+        await AsyncStorage.setItem("cart", JSON.stringify(updatedCart));
+      }
+
       setProducts(updatedProducts);
       Toast.show({
         type: "success",
         text1: "Success",
-        text2: "Product deleted successfully!",
+        text2: "Product deleted from both list and cart!",
       });
     } catch (error) {
       console.error("Error deleting product:", error);
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Failed to delete product",
+      });
     }
   };
 
@@ -125,7 +150,6 @@ const ProductList = () => {
           )}
         />
       )}
-      {/* Add Toast Component */}
       <Toast />
     </View>
   );

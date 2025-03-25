@@ -24,6 +24,7 @@ const QRScanner = () => {
   const [quantity, setQuantity] = useState("");
   const [existingProduct, setExistingProduct] = useState(null);
   const [modalAnim] = useState(new Animated.Value(200));
+  const [scanning, setScanning] = useState(true);
 
   const device = useCameraDevice("back");
 
@@ -56,7 +57,10 @@ const QRScanner = () => {
       toValue: 300,
       duration: 500,
       useNativeDriver: true,
-    }).start(() => setModalVisible(false));
+    }).start(() => {
+      setModalVisible(false);
+      setScanning(true); 
+    });
   };
 
   const checkLocalStorage = async (code) => {
@@ -64,13 +68,46 @@ const QRScanner = () => {
       const storedProducts = await AsyncStorage.getItem("products");
       const products = storedProducts ? JSON.parse(storedProducts) : [];
 
-      const existing = products.find((p) => p.code === code);
 
-      if (existing) {
-        setScannedCode(code);
-        setExistingProduct(existing);
-        setQuantity(existing.quantity.toString());
-        showModal();
+      console.log("stored proudcts", products);
+
+      const storedCart = await AsyncStorage.getItem("cart");
+      let cart = storedCart ? JSON.parse(storedCart) : [];
+
+      const existingProduct = products.find((p) => p.code === code);
+      const existingCartProduct = cart.find((p) => p.code === code);
+
+      console.log("existing product",existingProduct);
+      console.log("existing cart product",existingCartProduct);
+      
+      if (existingCartProduct) {
+        Toast.show({
+          type: "info",
+          text1: "Product Already Added",
+          text2: `${existingCartProduct.name} is already in the cart.`,
+        });
+        setScanning(true); 
+        return;
+      }
+
+      if (existingProduct) {
+        const newCartItem = {
+          id: existingProduct.id,
+          code: existingProduct.code,
+          name: existingProduct.name,
+          price: existingProduct.price,
+          quantity: 1,
+        };
+
+        cart.push(newCartItem);
+        await AsyncStorage.setItem("cart", JSON.stringify(cart));
+
+        Toast.show({
+          type: "success",
+          text1: "Added to Cart",
+          text2: `${existingProduct.name} added to cart.`,
+        });
+        setScanning(true); 
       } else {
         setScannedCode(code);
         setProductName("");
@@ -81,8 +118,10 @@ const QRScanner = () => {
       }
     } catch (error) {
       console.error("Error checking local storage:", error);
+      setScanning(true);
     }
   };
+
 
   const handleSubmit = async () => {
     if (!quantity || parseInt(quantity, 10) <= 0) {
@@ -136,9 +175,9 @@ const QRScanner = () => {
   const codeScanner = useCodeScanner({
     codeTypes: ["qr", "ean-13"],
     onCodeScanned: (codes) => {
-      if (codes.length > 0) {
+      if (codes.length > 0 && scanning) {
+        setScanning(false);
         const scannedValue = codes[0].value;
-        console.log(`Scanned Code: ${scannedValue}`);
         checkLocalStorage(scannedValue);
       }
     },
